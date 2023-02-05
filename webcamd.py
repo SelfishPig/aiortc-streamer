@@ -69,7 +69,7 @@ async def offer(request):
     )
 
 async def snapshot(request):
-    image = ffmpeg.input(args.play_from).output('-', vframes=1, format='image2pipe').run(capture_stdout=True)
+    image = ffmpeg.input(args.play_from).output('-', vframes=1, format='image2pipe').run(capture_stdout=True).read_bytes()
     return web.Response(
         content_type="image/jpeg",
         body=image
