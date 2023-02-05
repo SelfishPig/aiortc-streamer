@@ -10,13 +10,10 @@ from aiohttp import web
 from aiortc import RTCPeerConnection, RTCSessionDescription
 from aiortc.contrib.media import MediaPlayer, MediaRelay
 from aiortc.rtcrtpsender import RTCRtpSender
-
-ROOT = os.path.dirname(__file__)
-
+import aiohttp_cors
 
 relay = None
 webcam = None
-
 
 def create_local_tracks(play_from, decode):
     global relay, webcam
@@ -47,15 +44,6 @@ def force_codec(pc, sender, forced_codec):
     transceiver = next(t for t in pc.getTransceivers() if t.sender == sender)
     transceiver.setCodecPreferences(
         [codec for codec in codecs if codec.mimeType == forced_codec]
-    )
-
-async def offer_options(request):
-    return web.Response(
-        headers=MultiDict({
-            'Access-Control-Allow-Origin': "*",
-            'Access-Control-Allow-Methods': "POST",
-            'Access-Control-Allow-Headers': "*",
-        }),
     )
     
 async def offer(request):
@@ -97,20 +85,13 @@ async def offer(request):
     await pc.setLocalDescription(answer)
 
     return web.Response(
-        headers=MultiDict({
-            'Access-Control-Allow-Origin': "*",
-            'Access-Control-Allow-Methods': "POST",
-            'Access-Control-Allow-Headers': "*",
-        }),
         content_type="application/json",
         text=json.dumps(
             {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
         ),
     )
 
-
 pcs = set()
-
 
 async def on_shutdown(app):
     # close peer connections
@@ -162,5 +143,17 @@ if __name__ == "__main__":
     app = web.Application()
     app.on_shutdown.append(on_shutdown)
     app.router.add_post("/stream", offer)
-    app.router.add_options("/stream", offer_options)
-    web.run_app(app, host=args.host, port=args.port, ssl_context=ssl_context)
+   
+    cors = aiohttp_cors.setup(app, defaults={
+    "*": aiohttp_cors.ResourceOptions(
+            allow_credentials=True,
+            expose_headers="*",
+            allow_headers="*",
+        )
+    })
+
+    # Configure CORS on all routes.
+    for route in list(app.router.routes()):
+        cors.add(route)
+    
+    #web.run_app(app, host=args.host, port=args.port, ssl_context=ssl_context)
