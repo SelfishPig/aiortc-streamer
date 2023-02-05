@@ -6,36 +6,15 @@ import os
 import platform
 import ssl
 import aiohttp_cors
+import ffmpeg
 from aiohttp import web
 from aiortc import RTCPeerConnection, RTCSessionDescription
 from aiortc.contrib.media import MediaPlayer, MediaRelay
 from aiortc.rtcrtpsender import RTCRtpSender
 
-relay = None
-webcam = None
-
 def create_local_tracks(play_from, decode):
-    global relay, webcam
-
-    if play_from:
-        player = MediaPlayer(play_from, decode=decode)
-        return player.audio, player.video
-    else:
-        options = {"framerate": "30", "video_size": "640x480"}
-        if relay is None:
-            if platform.system() == "Darwin":
-                webcam = MediaPlayer(
-                    "default:none", format="avfoundation", options=options
-                )
-            elif platform.system() == "Windows":
-                webcam = MediaPlayer(
-                    "video=Integrated Camera", format="dshow", options=options
-                )
-            else:
-                webcam = MediaPlayer("/dev/video0", format="v4l2", options=options)
-            relay = MediaRelay()
-        return None, relay.subscribe(webcam.video)
-
+    player = MediaPlayer(play_from, decode=decode)
+    return player.audio, player.video
 
 def force_codec(pc, sender, forced_codec):
     kind = forced_codec.split("/")[0]
@@ -89,6 +68,13 @@ async def offer(request):
         ),
     )
 
+async def snapshot(request):
+    image = ffmpeg.input(args.play_from).output('-', vframes=1, format='image2pipe').run(capture_stdout=True)
+    return web.Response(
+        content_type="image/jpeg",
+        body=image
+    )
+
 pcs = set()
 
 async def on_shutdown(app):
@@ -98,10 +84,10 @@ async def on_shutdown(app):
     pcs.clear()
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="WebRTC webcam demo")
+    parser = argparse.ArgumentParser(description="WebRTC Streamer for Mainsail")
     parser.add_argument("--cert-file", help="SSL certificate file (for HTTPS)")
     parser.add_argument("--key-file", help="SSL key file (for HTTPS)")
-    parser.add_argument("--play-from", help="Read the media from a file and sent it."),
+    parser.add_argument("--play-from", help="Read the media from a file and sent it.", required=True),
     parser.add_argument(
         "--play-without-decoding",
         help=(
@@ -139,7 +125,8 @@ if __name__ == "__main__":
 
     app = web.Application()
     app.on_shutdown.append(on_shutdown)
-    app.router.add_post("/stream", offer)
+    app.router.add_post("/offer", offer)
+    app.router.add_route("/snapshot", snapshot)
    
     cors = aiohttp_cors.setup(app, defaults={
     "*": aiohttp_cors.ResourceOptions(
