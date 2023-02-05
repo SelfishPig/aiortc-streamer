@@ -97,6 +97,11 @@ async def offer(request):
     await pc.setLocalDescription(answer)
 
     return web.Response(
+        headers=MultiDict({
+            'Access-Control-Allow-Origin': "*",
+            'Access-Control-Allow-Methods': "POST",
+            'Access-Control-Allow-Headers': "*",
+        }),
         content_type="application/json",
         text=json.dumps(
             {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
