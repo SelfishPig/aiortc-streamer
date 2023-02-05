@@ -5,12 +5,11 @@ import logging
 import os
 import platform
 import ssl
-from multidict import MultiDict
+import aiohttp_cors
 from aiohttp import web
 from aiortc import RTCPeerConnection, RTCSessionDescription
 from aiortc.contrib.media import MediaPlayer, MediaRelay
 from aiortc.rtcrtpsender import RTCRtpSender
-import aiohttp_cors
 
 relay = None
 webcam = None
@@ -60,7 +59,6 @@ async def offer(request):
             await pc.close()
             pcs.discard(pc)
 
-    # open media source
     audio, video = create_local_tracks(
         args.play_from, decode=not args.play_without_decoding
     )
@@ -98,7 +96,6 @@ async def on_shutdown(app):
     coros = [pc.close() for pc in pcs]
     await asyncio.gather(*coros)
     pcs.clear()
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="WebRTC webcam demo")
@@ -151,8 +148,7 @@ if __name__ == "__main__":
             allow_headers="*",
         )
     })
-
-    # Configure CORS on all routes.
+    
     for route in list(app.router.routes()):
         cors.add(route)
     
