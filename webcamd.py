@@ -126,7 +126,7 @@ if __name__ == "__main__":
     app = web.Application()
     app.on_shutdown.append(on_shutdown)
     app.router.add_post("/offer", offer)
-    app.router.add_route("/snapshot", snapshot)
+    app.router.add_get("/snapshot", snapshot)
    
     cors = aiohttp_cors.setup(app, defaults={
     "*": aiohttp_cors.ResourceOptions(
